@@ -1,0 +1,53 @@
+La MIPS3000 tiene una TLB con una cantidad de entradas (fijas).
+En nachos se utiliza un arreglo de TranslationEntry de tamaño TLB_SIZE
+
+TLB_SIZE << cantidad de páginas virtuales de un proceso
+
+Cuando la máquina Florchis quiere acceder (leer/escribir) la memoria buscará la VPN en la TLB..
+  
+  TLB Hit -> Accede a la RAM
+   ___ ___ ___
+  |VPN|PPN| V | 
+  |___|___|___|
+  |_3_|_2_|_1_|
+  |_1_|_5_|_0_|
+  |_5_|_3_|_1_|
+  
+  where V = Value
+
+  TLB Miss -> La máquina lanza una excepción al SO
+           -> La excepción es PAGE_FAULT_EXCEPTION
+           -> Indica cuál fue la dirección que se quiso acceder: Reg BAD_REG_ADDR
+
+En ExceptionHandler:
+
+    ...
+    elseif (which == PAGE_FAULT_EXCEPTION) {
+        int vaddr = machine->ReadRegister(BAD_VADDR_REG);
+        int vpn = vaddr / PAGE_SIZE
+        if (vaddr < 0 || vaddr >= (currentThread -> space -> numPages) * PAGE_SIZE)){
+            bullshit
+        }
+        insertTLB(currentThread -> space -> pageTable [vpn]);
+       
+       // incrementarPC(); ???
+       // no, ya que el programa no pudo avanzar, debe volver a realizar la instruccion de lectura
+    } 
+
+insertTLB debería:
+  1) Buscar una entrada inválida 
+  2) Pisar alguna de las válidas (NO hacer LRU o complejizar al pedo)
+  3) Al pisar una entrada VÁLIDA hay que guardar la info en la pageTable del
+     currentThread. Ejemplo: piso la 3
+    
+                             pageTable[tlb[3].virtualPage]= tlb[3]
+
+Otros casos para manejar con TLB:
+  Ante un cambio de contexto
+    El proceso ENTRANTE debe flushear la TLB
+    El proceso SALIENTE debe guardar todas las entradas válidas en la page_table
+    El AddrSpace tiene 2 métodos para esto: SaveState y RestoreState
+
+Al enviar una página a SWAP debemos posiblemente actualizar la TLB y SEGURAMENTE
+actualizar una o más pageTable.
+Pregunta: ¿A qué proceso pertenece la PPN = 15? Traducción inversa
